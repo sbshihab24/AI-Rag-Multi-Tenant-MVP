@@ -1,0 +1,25 @@
+# requirements.txt
+
+# Core Frameworks
+streamlit
+
+# LangChain Dependencies
+langchain
+langchain-core
+langchain-community
+langchain-openai
+langchain-text-splitters 
+
+# Vector DB
+qdrant-client
+
+# OpenAI Integration
+openai
+python-dotenv
+
+# Document Processing
+pypdf
+tiktoken
+
+# Database
+SQLAlchemy

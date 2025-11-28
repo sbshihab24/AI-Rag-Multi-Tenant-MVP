@@ -1,0 +1,68 @@
+# -----------------------
+# Python
+# -----------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+instance/
+*.log
+
+# -----------------------
+# Virtual Environment
+# -----------------------
+.venv/
+venv/
+env/
+ENV/
+
+# -----------------------
+# Environment & Secrets
+# -----------------------
+.env
+*.env
+.env.*
+config.yaml
+credentials.json
+secrets.json
+
+# -----------------------
+# VS Code
+# -----------------------
+.vscode/
+.code-workspace
+
+# -----------------------
+# OS / Editor Files
+# -----------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------
+# Cache / Packaging
+# -----------------------
+.cache/
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# -----------------------
+# RAG / Vector DB
+# -----------------------
+data/
+tmp/
+downloads/
+chroma/
+qdrant/
+faiss_index/
+vector_store/
+rag_cache/
+
+# -----------------------
+# Streamlit / Logs
+# -----------------------
+.streamlit/
+logs/
