@@ -1,4 +1,3 @@
-# reset_db.py
 from src.qdrant_client import get_standalone_qdrant_client
 from src.config import QDRANT_COLLECTION_NAME
 from qdrant_client import models

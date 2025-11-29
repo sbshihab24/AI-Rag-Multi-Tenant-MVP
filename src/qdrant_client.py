@@ -4,11 +4,14 @@ from qdrant_client import QdrantClient, models
 from src.config import QDRANT_URL, QDRANT_COLLECTION_NAME, VECTOR_SIZE
 from langchain_community.vectorstores import Qdrant
 from langchain_openai import OpenAIEmbeddings
+import logging
 
-# Define the Qdrant API parameters used by LangChain
+logger = logging.getLogger(__name__)
+
+# Define the Qdrant API parameters
 QDRANT_KWARGS = {
     "url": QDRANT_URL,
-    # "api_key": os.getenv("QDRANT_API_KEY") # Uncomment if using Qdrant Cloud
+    # "api_key": os.getenv("QDRANT_API_KEY") # Uncomment if using Cloud
 }
 
 def get_embedding_model():
@@ -17,15 +20,13 @@ def get_embedding_model():
 
 def get_standalone_qdrant_client():
     """Initializes and returns the raw Qdrant client connected to the server."""
-    # Use the QDRANT_KWARGS (containing the URL) to connect to the Docker server
     return QdrantClient(**QDRANT_KWARGS)
 
 def get_vector_store():
     """Returns the LangChain Qdrant VectorStore wrapper."""
-    # This function is used by retrieval and ingestion services.
-    # It must pass the instantiated client object directly to the LangChain wrapper.
+    # This is used for INGESTION (Adding documents)
     return Qdrant(
-        client=get_standalone_qdrant_client(), # Pass the server-connected client
+        client=get_standalone_qdrant_client(),
         embeddings=get_embedding_model(),
         collection_name=QDRANT_COLLECTION_NAME,
     )
@@ -40,12 +41,9 @@ def initialize_qdrant_collection():
     # Check if collection exists manually and create if necessary
     collections = client.get_collections().collections
     if QDRANT_COLLECTION_NAME not in [c.name for c in collections]:
-        print(f"Creating collection '{QDRANT_COLLECTION_NAME}'...")
-        
+        logger.info(f"Creating collection '{QDRANT_COLLECTION_NAME}'...")
         client.recreate_collection(
             collection_name=QDRANT_COLLECTION_NAME,
             vectors_config=vectors_config
         )
-        print("Collection created successfully.")
-    else:
-        print(f"Collection '{QDRANT_COLLECTION_NAME}' already exists. Setup complete.")
+        logger.info("Collection created successfully.")

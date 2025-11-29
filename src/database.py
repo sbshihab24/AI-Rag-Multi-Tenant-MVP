@@ -1,10 +1,11 @@
-# src/database.py
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.models import Base, Tenant, Document, ConversationLog
 from src.config import DATABASE_URL
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialize Engine and Session
 engine = create_engine(DATABASE_URL)
@@ -21,12 +22,14 @@ def init_db():
             db.add_all([
                 Tenant(id="tenantA", name="Tenant Alpha Corp"),
                 Tenant(id="tenantB", name="Tenant Beta Solutions"),
+                # ADD THIS LINE:
+                Tenant(id="tenantC", name="Tenant Charlie Inc"), 
                 Tenant(id="admin", name="Admin Panel User")
             ])
             db.commit()
-            print("Initial tenants created.")
+            logger.info("Initial tenants created.")
     except Exception as e:
-        print(f"DB setup error: {e}")
+        logger.exception(f"DB setup error: {e}")
         db.rollback()
     finally:
         db.close()
@@ -54,12 +57,18 @@ def get_all_logs():
     db = SessionLocal()
     try:
         # Join with Tenant table to show tenant names
-        logs = db.query(ConversationLog, Tenant.name).join(Tenant).all()
-        return [{"id": log.ConversationLog.id, 
-                 "tenant_name": tenant_name,
-                 "question": log.ConversationLog.question,
-                 "answer": log.ConversationLog.answer,
-                 "timestamp": log.ConversationLog.timestamp} 
-                for log, tenant_name in logs]
+        # results will be a list of tuples: (ConversationLog, tenant_name)
+        results = db.query(ConversationLog, Tenant.name).join(Tenant).all()
+        
+        logs_list = []
+        for log, tenant_name in results:
+            logs_list.append({
+                "id": log.id, # Corrected: Access 'id' directly on the ConversationLog object 'log'
+                "tenant_name": tenant_name,
+                "question": log.question,
+                "answer": log.answer,
+                "timestamp": log.timestamp
+            })
+        return logs_list
     finally:
         db.close()

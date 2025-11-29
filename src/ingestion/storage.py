@@ -1,26 +1,34 @@
 # src/ingestion/storage.py
 
 from src.qdrant_client import get_vector_store
-from src.ingestion.pdf_loader import load_and_split_pdf, save_uploaded_file
+from src.ingestion.doc_loader import load_and_split_document, save_uploaded_file
 from src.database import SessionLocal, Document
 from datetime import datetime
 
 def ingest_document(uploaded_file, tenant_id: str):
-    """Main function to handle full document ingestion pipeline."""
+    """Ingests a single file of ANY supported type."""
     file_name = uploaded_file.name
     
-    # 1. Save File Locally
-    file_path = save_uploaded_file(uploaded_file, tenant_id)
+    # 1. Save File
+    try:
+        file_path = save_uploaded_file(uploaded_file, tenant_id)
+    except Exception as e:
+        return f"FAILED: Could not save uploaded file: {e}"
     
-    # 2. Load and Split PDF
-    chunks = load_and_split_pdf(file_path, file_name, tenant_id)
+    # 2. Load & Split (Using the new Universal Loader)
+    error, chunks = load_and_split_document(file_path, file_name, tenant_id)
     
-    # 3. Store in Qdrant
-    # We use the existing vector_store instance to avoid connection errors
+    if error:
+        return f"FAILED: {error}"
+    
+    if not chunks:
+        return "Warning: No text found in document."
+
+    # 3. Store in Qdrant (Merging into existing KB automatically)
     vector_store = get_vector_store()
     vector_store.add_documents(chunks)
     
-    # 4. Log to SQLite
+    # 4. Log to DB
     db = SessionLocal()
     try:
         new_doc = Document(
@@ -34,4 +42,4 @@ def ingest_document(uploaded_file, tenant_id: str):
     finally:
         db.close()
         
-    return f"Indexed {len(chunks)} chunks into Qdrant."
+    return f"Success ({len(chunks)} chunks)"

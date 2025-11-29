@@ -1,5 +1,3 @@
-# streamlit_ui/utils.py
-
 import streamlit as st
 from src.qdrant_client import initialize_qdrant_collection
 import json
@@ -13,6 +11,16 @@ def initialize_backend_setup():
     
     init_db()
     initialize_qdrant_collection() 
+
+def initialize_app_state():
+    """Initializes Streamlit session state variables and backend setup."""
+    if 'tenant_id' not in st.session_state:
+        st.session_state.tenant_id = None
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    
+    # Initialize the backend
+    initialize_backend_setup()
 
 def show_login_form():
     """Displays the login form for tenant selection."""

@@ -12,6 +12,12 @@ sys.path.insert(0, str(project_root))
 
 import streamlit as st
 from streamlit_ui.utils import show_login_form, initialize_backend_setup
+import logging
+import sys
+
+# Configure logging to stdout so Streamlit terminal shows backend logs
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
+logger = logging.getLogger(__name__)
 
 # --- FIX 2: Immediate Session State Initialization ---
 # This ensures 'tenant_id' exists BEFORE any conditional checks below
