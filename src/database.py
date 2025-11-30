@@ -77,91 +77,122 @@
 
 # src/database.py
 
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from src.models import Base, Tenant, Document, ConversationLog
-from src.config import DATABASE_URL
+import logging
 from datetime import datetime
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+from src.models import Base, Tenant, Document, ConversationLog
 
-# Initialize Engine and Session
-# Note: We strictly use the URL from config. The folder creation happens in init_db.
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+logger = logging.getLogger(__name__)
 
+# ─────────────────────────────────────────────
+# ✔ STREAMLIT-SAFE DATABASE LOCATION
+# DO NOT STORE DB INSIDE REPO (read-only)
+# /tmp/ is always writable on Streamlit Cloud
+# ─────────────────────────────────────────────
+DATABASE_URL = "sqlite:////tmp/app.db"
+
+# Create engine with thread-safe config for Streamlit
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False},  # REQUIRED for Streamlit
+    echo=False
+)
+
+# Session factory
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+
+# SQLAlchemy Base (models attach to this)
+Base = declarative_base()
+
+# ─────────────────────────────────────────────
+# DB INITIALIZATION
+# ─────────────────────────────────────────────
 def init_db():
-    """Create tables and pre-populate initial tenants if they don't exist."""
-    
-    # --- FIX: Ensure the database directory exists before creating the file ---
-    if DATABASE_URL.startswith("sqlite:///"):
-        # Extract the path (e.g., "./data/mvp_database.db")
-        db_path = DATABASE_URL.replace("sqlite:///", "")
-        db_dir = os.path.dirname(db_path)
-        
-        # If a directory path exists and it's not empty, create it
-        if db_dir and not os.path.exists(db_dir):
-            try:
-                os.makedirs(db_dir, exist_ok=True)
-                print(f"Created database directory: {db_dir}")
-            except Exception as e:
-                print(f"Warning: Could not create DB directory. Error: {e}")
-    # -------------------------------------------------------------------------
+    """Create tables and pre-populate tenants."""
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created.")
+    except Exception as e:
+        logger.exception(f"Failed to create DB tables: {e}")
+        return
 
-    Base.metadata.create_all(bind=engine)
-    
     db = SessionLocal()
     try:
-        # Pre-populate tenants for the demo
-        # We check for tenants to avoid duplicates on restarts
+        # Only seed if empty
         if db.query(Tenant).count() == 0:
-            db.add_all([
+            tenants = [
                 Tenant(id="tenantA", name="Tenant Alpha Corp"),
                 Tenant(id="tenantB", name="Tenant Beta Solutions"),
                 Tenant(id="tenantC", name="Tenant Charlie Inc"),
                 Tenant(id="admin", name="Admin Panel User")
-            ])
+            ]
+            db.add_all(tenants)
             db.commit()
-            print("Initial tenants created.")
+            logger.info("Initial tenants created.")
     except Exception as e:
-        print(f"DB setup error: {e}")
         db.rollback()
+        logger.exception(f"Tenant initialization error: {e}")
     finally:
         db.close()
 
-# --- Logging Functions ---
 
+# ─────────────────────────────────────────────
+# LOGGING CONVERSATIONS
+# ─────────────────────────────────────────────
 def log_conversation(tenant_id: str, question: str, answer: str, citations: str):
-    """Saves a Q&A interaction to the database."""
+    """Save Q&A interaction to DB."""
     db = SessionLocal()
     try:
-        log = ConversationLog(
+        entry = ConversationLog(
             tenant_id=tenant_id,
             question=question,
             answer=answer,
             citations=citations,
             timestamp=datetime.utcnow()
         )
-        db.add(log)
+        db.add(entry)
         db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Error logging conversation: {e}")
     finally:
         db.close()
 
+
+# ─────────────────────────────────────────────
+# FETCH ALL LOGS FOR ADMIN PANEL
+# ─────────────────────────────────────────────
 def get_all_logs():
-    """Retrieves all conversation logs for the Admin Panel."""
     db = SessionLocal()
     try:
-        # Join with Tenant table to show tenant names
-        results = db.query(ConversationLog, Tenant.name).join(Tenant).all()
-        
-        logs_list = []
-        for log, tenant_name in results:
-            logs_list.append({
-                "id": log.id, 
+        # Join tenant table to display tenant names
+        rows = (
+            db.query(ConversationLog, Tenant.name)
+            .join(Tenant, Tenant.id == ConversationLog.tenant_id)
+            .order_by(ConversationLog.timestamp.desc())
+            .all()
+        )
+
+        logs = []
+        for log, tenant_name in rows:
+            logs.append({
+                "id": log.id,
                 "tenant_name": tenant_name,
                 "question": log.question,
                 "answer": log.answer,
-                "timestamp": log.timestamp
+                "citations": log.citations,
+                "timestamp": log.timestamp,
             })
-        return logs_list
+        return logs
+    except Exception as e:
+        logger.exception(f"Error fetching logs: {e}")
+        return []
     finally:
         db.close()
+
+      
