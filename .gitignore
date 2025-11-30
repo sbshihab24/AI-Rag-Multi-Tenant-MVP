@@ -56,17 +56,10 @@ secrets.toml
 # -----------------------
 # Data & Storage (Keep these local)
 # -----------------------
-data/
-qdrant_storage/
-mvp_database.db
-*.sqlite3
 *.db
-tmp/
-chroma/
-qdrant/
-faiss_index/
-vector_store/
-rag_cache/
+data/*.db
+tmp/*.db
+
 
 # -----------------------
 # OS generated files
