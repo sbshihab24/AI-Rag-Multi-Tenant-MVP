@@ -1,5 +1,3 @@
-# src/config.py
-
 import os
 from dotenv import load_dotenv
 
@@ -12,12 +10,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # --- Qdrant Configuration ---
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
-# QDRANT_API_KEY = os.getenv("QDRANT_API_KEY") # Uncomment if using Qdrant Cloud
 QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "multi_tenant_knowledge")
-VECTOR_SIZE = 1536  # The size for 'text-embedding-3-small'
-
-# --- SQLite Database Configuration ---
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/mvp_database.db")
+VECTOR_SIZE = 1536  
 
 # --- Chunking Parameters ---
 CHUNK_SIZE = 1000

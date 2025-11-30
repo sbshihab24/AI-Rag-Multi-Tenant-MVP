@@ -85,45 +85,35 @@ from src.models import Base, Tenant, Document, ConversationLog
 
 logger = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────
-# ✔ STREAMLIT-SAFE DATABASE LOCATION
-# DO NOT STORE DB INSIDE REPO (read-only)
-# /tmp/ is always writable on Streamlit Cloud
-# ─────────────────────────────────────────────
+# --- CRITICAL FIX: Streamlit-safe writable DB path ---
 DATABASE_URL = "sqlite:////tmp/app.db"
 
-# Create engine with thread-safe config for Streamlit
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},  # REQUIRED for Streamlit
+    connect_args={"check_same_thread": False},
     echo=False
 )
 
-# Session factory
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
 
-# SQLAlchemy Base (models attach to this)
 Base = declarative_base()
 
-# ─────────────────────────────────────────────
-# DB INITIALIZATION
-# ─────────────────────────────────────────────
+
 def init_db():
-    """Create tables and pre-populate tenants."""
+    """Creates all tables + seeds tenants."""
     try:
         Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created.")
+        logger.info("DB tables created.")
     except Exception as e:
-        logger.exception(f"Failed to create DB tables: {e}")
+        logger.exception(f"DB create failed: {e}")
         return
 
     db = SessionLocal()
     try:
-        # Only seed if empty
         if db.query(Tenant).count() == 0:
             tenants = [
                 Tenant(id="tenantA", name="Tenant Alpha Corp"),
@@ -133,19 +123,15 @@ def init_db():
             ]
             db.add_all(tenants)
             db.commit()
-            logger.info("Initial tenants created.")
+            logger.info("Initial tenants added.")
     except Exception as e:
         db.rollback()
-        logger.exception(f"Tenant initialization error: {e}")
+        logger.exception(f"Tenant init error: {e}")
     finally:
         db.close()
 
 
-# ─────────────────────────────────────────────
-# LOGGING CONVERSATIONS
-# ─────────────────────────────────────────────
 def log_conversation(tenant_id: str, question: str, answer: str, citations: str):
-    """Save Q&A interaction to DB."""
     db = SessionLocal()
     try:
         entry = ConversationLog(
@@ -153,24 +139,20 @@ def log_conversation(tenant_id: str, question: str, answer: str, citations: str)
             question=question,
             answer=answer,
             citations=citations,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
         db.add(entry)
         db.commit()
     except Exception as e:
         db.rollback()
-        logger.exception(f"Error logging conversation: {e}")
+        logger.exception(f"Log save error: {e}")
     finally:
         db.close()
 
 
-# ─────────────────────────────────────────────
-# FETCH ALL LOGS FOR ADMIN PANEL
-# ─────────────────────────────────────────────
 def get_all_logs():
     db = SessionLocal()
     try:
-        # Join tenant table to display tenant names
         rows = (
             db.query(ConversationLog, Tenant.name)
             .join(Tenant, Tenant.id == ConversationLog.tenant_id)
@@ -178,21 +160,19 @@ def get_all_logs():
             .all()
         )
 
-        logs = []
-        for log, tenant_name in rows:
-            logs.append({
-                "id": log.id,
+        return [
+            {
+                "id": conv.id,
                 "tenant_name": tenant_name,
-                "question": log.question,
-                "answer": log.answer,
-                "citations": log.citations,
-                "timestamp": log.timestamp,
-            })
-        return logs
+                "question": conv.question,
+                "answer": conv.answer,
+                "citations": conv.citations,
+                "timestamp": conv.timestamp,
+            }
+            for conv, tenant_name in rows
+        ]
     except Exception as e:
-        logger.exception(f"Error fetching logs: {e}")
+        logger.exception(f"Log fetch error: {e}")
         return []
     finally:
         db.close()
-
-      

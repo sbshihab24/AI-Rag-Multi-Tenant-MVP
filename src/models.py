@@ -1,8 +1,5 @@
-# src/models.py
-
-from sqlalchemy import Column, Integer, String, Text, DateTime, create_engine, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
 Base = declarative_base()
@@ -27,7 +24,5 @@ class ConversationLog(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     question = Column(Text, nullable=False)
     answer = Column(Text, nullable=False)
-    citations = Column(Text) # JSON string of document and page info
-    is_validated = Column(Integer, default=0) # For admin correction: 0=No, 1=Yes
-    
-# NOTE: The Tenant and Document models are essential for the Admin Panel.
+    citations = Column(Text)
+    is_validated = Column(Integer, default=0)
