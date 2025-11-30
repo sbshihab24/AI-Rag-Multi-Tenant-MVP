@@ -80,13 +80,17 @@
 import logging
 from datetime import datetime
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 from src.models import Base, Tenant, Document, ConversationLog
 
 logger = logging.getLogger(__name__)
 
-# --- CRITICAL FIX: Streamlit-safe writable DB path ---
+# -------------------------------------------------------------
+# 100% STREAMLIT-SAFE DATABASE LOCATION
+# -------------------------------------------------------------
+# /tmp is ALWAYS writable on Streamlit Cloud
 DATABASE_URL = "sqlite:////tmp/app.db"
+
 
 engine = create_engine(
     DATABASE_URL,
@@ -94,44 +98,51 @@ engine = create_engine(
     echo=False
 )
 
+# Create a Session factory
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
 
-Base = declarative_base()
 
-
+# -------------------------------------------------------------
+# INITIALIZE DATABASE & SEED TENANTS
+# -------------------------------------------------------------
 def init_db():
-    """Creates all tables + seeds tenants."""
+    """Create tables and seed initial tenant data."""
     try:
         Base.metadata.create_all(bind=engine)
-        logger.info("DB tables created.")
+        logger.info("DB tables created successfully.")
     except Exception as e:
-        logger.exception(f"DB create failed: {e}")
+        logger.exception(f"DB table creation failed: {e}")
         return
 
     db = SessionLocal()
     try:
+        # Seed tenants only if empty
         if db.query(Tenant).count() == 0:
             tenants = [
                 Tenant(id="tenantA", name="Tenant Alpha Corp"),
                 Tenant(id="tenantB", name="Tenant Beta Solutions"),
                 Tenant(id="tenantC", name="Tenant Charlie Inc"),
-                Tenant(id="admin", name="Admin Panel User")
+                Tenant(id="admin",   name="Admin Panel User")
             ]
             db.add_all(tenants)
             db.commit()
-            logger.info("Initial tenants added.")
+            logger.info("Default tenants inserted.")
     except Exception as e:
         db.rollback()
-        logger.exception(f"Tenant init error: {e}")
+        logger.exception(f"Error inserting tenants: {e}")
     finally:
         db.close()
 
 
+# -------------------------------------------------------------
+# LOG CONVERSATIONS
+# -------------------------------------------------------------
 def log_conversation(tenant_id: str, question: str, answer: str, citations: str):
+    """Insert a chat log entry."""
     db = SessionLocal()
     try:
         entry = ConversationLog(
@@ -139,18 +150,22 @@ def log_conversation(tenant_id: str, question: str, answer: str, citations: str)
             question=question,
             answer=answer,
             citations=citations,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.utcnow()
         )
         db.add(entry)
         db.commit()
     except Exception as e:
         db.rollback()
-        logger.exception(f"Log save error: {e}")
+        logger.exception(f"Conversation log failed: {e}")
     finally:
         db.close()
 
 
+# -------------------------------------------------------------
+# FETCH ALL LOGS FOR ADMIN PANEL
+# -------------------------------------------------------------
 def get_all_logs():
+    """Return all logs joined to tenant names."""
     db = SessionLocal()
     try:
         rows = (
@@ -172,7 +187,7 @@ def get_all_logs():
             for conv, tenant_name in rows
         ]
     except Exception as e:
-        logger.exception(f"Log fetch error: {e}")
+        logger.exception(f"Failed to fetch logs: {e}")
         return []
     finally:
         db.close()
